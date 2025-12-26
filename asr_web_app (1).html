@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speaker Diarization System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e22ce 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px;
+            color: white;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .control-panel {
+            background: #f8f9fa;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 2px solid #e9ecef;
+        }
+
+        .controls-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 14px 28px;
+            font-size: 15px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(231, 76, 60, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .settings-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .setting-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .setting-group label {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .setting-group input,
+        .setting-group select {
+            padding: 10px 14px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .setting-group input:focus,
+        .setting-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 16px;
+            border-radius: 12px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .status-indicator.idle {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 2px solid #bee5eb;
+        }
+
+        .status-indicator.recording {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+
+        .status-indicator.processing {
+            background: #fff3cd;
+            color: #856404;
+            border: 2px solid #ffc107;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.recording .status-dot {
+            background: #28a745;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .timeline-container {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 2px solid #e9ecef;
+        }
+
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .timeline-header h3 {
+            font-size: 1.5em;
+            color: #333;
+        }
+
+        .speaker-legend {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: #f8f9fa;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+        }
+
+        .transcript-container {
+            max-height: 500px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .transcript-segment {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            padding: 16px;
+            border-radius: 12px;
+            border-left: 4px solid;
+            animation: slideIn 0.3s ease;
+            transition: all 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .transcript-segment:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .segment-time {
+            min-width: 80px;
+            font-weight: 700;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .segment-content {
+            flex: 1;
+        }
+
+        .segment-speaker {
+            font-weight: 700;
+            margin-bottom: 6px;
+            font-size: 15px;
+        }
+
+        .segment-text {
+            color: #333;
+            line-height: 1.6;
+            font-size: 15px;
+        }
+
+        .speaker-0 {
+            background: #e3f2fd;
+            border-color: #2196f3;
+        }
+
+        .speaker-0 .segment-speaker {
+            color: #1976d2;
+        }
+
+        .speaker-1 {
+            background: #f3e5f5;
+            border-color: #9c27b0;
+        }
+
+        .speaker-1 .segment-speaker {
+            color: #7b1fa2;
+        }
+
+        .speaker-2 {
+            background: #fff3e0;
+            border-color: #ff9800;
+        }
+
+        .speaker-2 .segment-speaker {
+            color: #f57c00;
+        }
+
+        .speaker-3 {
+            background: #e8f5e9;
+            border-color: #4caf50;
+        }
+
+        .speaker-3 .segment-speaker {
+            color: #388e3c;
+        }
+
+        .speaker-4 {
+            background: #fce4ec;
+            border-color: #e91e63;
+        }
+
+        .speaker-4 .segment-speaker {
+            color: #c2185b;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .empty-state h3 {
+            font-size: 1.3em;
+            margin-bottom: 10px;
+            color: #666;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            border-radius: 12px;
+            color: white;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .audio-visualizer {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            gap: 4px;
+            height: 60px;
+            margin: 20px 0;
+        }
+
+        .viz-bar {
+            width: 6px;
+            background: linear-gradient(to top, #667eea, #764ba2);
+            border-radius: 3px;
+            transition: height 0.1s ease;
+        }
+
+        .export-section {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border: 2px solid #2196f3;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 30px;
+        }
+
+        .info-box h4 {
+            color: #1976d2;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .info-box ul {
+            margin-left: 20px;
+            color: #333;
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎙️ Speaker Diarization System</h1>
+            <p>Advanced Multi-Speaker Recognition & Transcription</p>
+        </div>
+
+        <div class="main-content">
+            <div class="control-panel">
+                <div class="status-indicator idle" id="status">
+                    <span class="status-dot"></span>
+                    <span id="statusText">Ready to start recording</span>
+                </div>
+
+                <div class="settings-row">
+                    <div class="setting-group">
+                        <label for="language">Language</label>
+                        <select id="language">
+                            <option value="en-US">English (US)</option>
+                            <option value="en-GB">English (UK)</option>
+                            <option value="es-ES">Spanish</option>
+                            <option value="fr-FR">French</option>
+                            <option value="de-DE">German</option>
+                            <option value="it-IT">Italian</option>
+                            <option value="pt-BR">Portuguese</option>
+                            <option value="ja-JP">Japanese</option>
+                            <option value="zh-CN">Chinese</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <label for="numSpeakers">Expected Speakers</label>
+                        <input type="number" id="numSpeakers" min="2" max="5" value="3">
+                    </div>
+                    <div class="setting-group">
+                        <label for="sensitivity">Detection Sensitivity</label>
+                        <select id="sensitivity">
+                            <option value="low">Low</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="audio-visualizer" id="visualizer">
+                    <div class="viz-bar" style="height: 15px;"></div>
+                    <div class="viz-bar" style="height: 25px;"></div>
+                    <div class="viz-bar" style="height: 20px;"></div>
+                    <div class="viz-bar" style="height: 35px;"></div>
+                    <div class="viz-bar" style="height: 28px;"></div>
+                    <div class="viz-bar" style="height: 40px;"></div>
+                    <div class="viz-bar" style="height: 22px;"></div>
+                    <div class="viz-bar" style="height: 30px;"></div>
+                    <div class="viz-bar" style="height: 18px;"></div>
+                    <div class="viz-bar" style="height: 25px;"></div>
+                </div>
+
+                <div class="controls-row">
+                    <button class="btn btn-primary" id="startBtn">
+                        <span>▶</span> Start Recording
+                    </button>
+                    <button class="btn btn-danger" id="stopBtn" disabled>
+                        <span>⏹</span> Stop
+                    </button>
+                    <button class="btn btn-secondary" id="clearBtn">
+                        <span>🗑</span> Clear All
+                    </button>
+                </div>
+
+                <div class="export-section">
+                    <button class="btn btn-secondary" id="exportTxt" disabled>
+                        <span>📄</span> Export TXT
+                    </button>
+                    <button class="btn btn-secondary" id="exportJson" disabled>
+                        <span>📊</span> Export JSON
+                    </button>
+                </div>
+            </div>
+
+            <div class="stats-grid" id="statsGrid" style="display: none;">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalSegments">0</div>
+                    <div class="stat-label">Total Segments</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalSpeakers">0</div>
+                    <div class="stat-label">Detected Speakers</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalDuration">00:00</div>
+                    <div class="stat-label">Duration</div>
+                </div>
+            </div>
+
+            <div class="timeline-container">
+                <div class="timeline-header">
+                    <h3>📝 Transcript Timeline</h3>
+                    <div class="speaker-legend" id="legend"></div>
+                </div>
+                <div class="transcript-container" id="transcriptContainer">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🎤</div>
+                        <h3>No recording yet</h3>
+                        <p>Click "Start Recording" to begin speaker diarization</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <h4>💡 About Speaker Diarization</h4>
+                <ul>
+                    <li><strong>Real-time Detection:</strong> Automatically identifies and separates different speakers</li>
+                    <li><strong>Voice Analysis:</strong> Uses pitch, frequency, and acoustic features to distinguish speakers</li>
+                    <li><strong>Timeline View:</strong> Color-coded segments show who spoke when</li>
+                    <li><strong>Export Options:</strong> Download transcripts in TXT or JSON format</li>
+                    <li><strong>Multi-language:</strong> Supports 9+ languages with accurate transcription</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const exportTxt = document.getElementById('exportTxt');
+        const exportJson = document.getElementById('exportJson');
+        const transcriptContainer = document.getElementById('transcriptContainer');
+        const status = document.getElementById('status');
+        const statusText = document.getElementById('statusText');
+        const legend = document.getElementById('legend');
+        const statsGrid = document.getElementById('statsGrid');
+        const visualizer = document.getElementById('visualizer');
+
+        let recognition;
+        let audioContext;
+        let analyser;
+        let microphone;
+        let isRecording = false;
+        let segments = [];
+        let currentSegment = null;
+        let startTime = null;
+        let speakerProfiles = {};
+        let speakerCount = 0;
+        let currentSpeaker = 0;
+        let lastSpeechTime = 0;
+
+        const speakerColors = [
+            { bg: '#e3f2fd', border: '#2196f3', color: '#1976d2', name: 'Speaker A' },
+            { bg: '#f3e5f5', border: '#9c27b0', color: '#7b1fa2', name: 'Speaker B' },
+            { bg: '#fff3e0', border: '#ff9800', color: '#f57c00', name: 'Speaker C' },
+            { bg: '#e8f5e9', border: '#4caf50', color: '#388e3c', name: 'Speaker D' },
+            { bg: '#fce4ec', border: '#e91e63', color: '#c2185b', name: 'Speaker E' }
+        ];
+
+        function updateLegend() {
+            legend.innerHTML = '';
+            const uniqueSpeakers = [...new Set(segments.map(s => s.speaker))];
+            uniqueSpeakers.forEach(speaker => {
+                const color = speakerColors[speaker % speakerColors.length];
+                const item = document.createElement('div');
+                item.className = 'legend-item';
+                item.innerHTML = `
+                    <div class="legend-color" style="background: ${color.border}"></div>
+                    <span>${color.name}</span>
+                `;
+                legend.appendChild(item);
+            });
+        }
+
+        function updateStats() {
+            const uniqueSpeakers = new Set(segments.map(s => s.speaker));
+            document.getElementById('totalSegments').textContent = segments.length;
+            document.getElementById('totalSpeakers').textContent = uniqueSpeakers.size;
+            
+            if (startTime) {
+                const duration = Math.floor((Date.now() - startTime) / 1000);
+                const mins = Math.floor(duration / 60).toString().padStart(2, '0');
+                const secs = (duration % 60).toString().padStart(2, '0');
+                document.getElementById('totalDuration').textContent = `${mins}:${secs}`;
+            }
+        }
+
+        function addSegment(text, speaker, timestamp) {
+            const segment = {
+                text,
+                speaker,
+                timestamp,
+                time: new Date().toLocaleTimeString()
+            };
+            segments.push(segment);
+
+            const color = speakerColors[speaker % speakerColors.length];
+            const div = document.createElement('div');
+            div.className = `transcript-segment speaker-${speaker}`;
+            div.innerHTML = `
+                <div class="segment-time">${segment.time}</div>
+                <div class="segment-content">
+                    <div class="segment-speaker">${color.name}</div>
+                    <div class="segment-text">${text}</div>
+                </div>
+            `;
+            
+            if (transcriptContainer.querySelector('.empty-state')) {
+                transcriptContainer.innerHTML = '';
+            }
+            
+            transcriptContainer.appendChild(div);
+            transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+
+            updateLegend();
+            updateStats();
+            exportTxt.disabled = false;
+            exportJson.disabled = false;
+        }
+
+        function startAudioAnalysis() {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 2048;
+
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    microphone = audioContext.createMediaStreamSource(stream);
+                    microphone.connect(analyser);
+                    analyzeAudio();
+                })
+                .catch(err => {
+                    console.error('Microphone error:', err);
+                    alert('Could not access microphone. Please grant permission.');
+                });
+        }
+
+        function analyzeAudio() {
+            if (!isRecording) return;
+
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteFrequencyData(dataArray);
+
+            // Calculate pitch and volume
+            let sum = 0, count = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                if (dataArray[i] > 0) {
+                    sum += i * dataArray[i];
+                    count += dataArray[i];
+                }
+            }
+            const avgFreq = count > 0 ? sum / count : 0;
+            const volume = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+
+            // Update visualizer
+            const bars = visualizer.querySelectorAll('.viz-bar');
+            bars.forEach((bar, i) => {
+                const val = dataArray[i * Math.floor(dataArray.length / bars.length)];
+                const height = Math.max(10, Math.min(50, val / 5));
+                bar.style.height = height + 'px';
+            });
+
+            // Detect speaker change
+            if (volume > 30) {
+                currentSpeaker = detectSpeaker(avgFreq, volume);
+                lastSpeechTime = Date.now();
+            }
+
+            requestAnimationFrame(analyzeAudio);
+        }
+
+        function detectSpeaker(frequency, volume) {
+            const sensitivity = document.getElementById('sensitivity').value;
+            const threshold = sensitivity === 'high' ? 15 : sensitivity === 'medium' ? 25 : 35;
+
+            for (let id in speakerProfiles) {
+                const profile = speakerProfiles[id];
+                const diff = Math.abs(frequency - profile.pitch) + Math.abs(volume - profile.volume) * 0.3;
+                if (diff < threshold) {
+                    return parseInt(id);
+                }
+            }
+
+            // New speaker detected
+            const maxSpeakers = parseInt(document.getElementById('numSpeakers').value);
+            if (speakerCount < maxSpeakers) {
+                const newId = speakerCount++;
+                speakerProfiles[newId] = { pitch: frequency, volume: volume };
+                return newId;
+            }
+
+            return currentSpeaker;
+        }
+
+        function exportToTxt() {
+            let content = 'Speaker Diarization Transcript\n';
+            content += '================================\n\n';
+            segments.forEach(seg => {
+                const speaker = speakerColors[seg.speaker % speakerColors.length].name;
+                content += `[${seg.time}] ${speaker}: ${seg.text}\n\n`;
+            });
+
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `transcript_${Date.now()}.txt`;
+            a.click();
+        }
+
+        function exportToJson() {
+            const data = {
+                timestamp: new Date().toISOString(),
+                totalSegments: segments.length,
+                speakers: [...new Set(segments.map(s => s.speaker))].length,
+                segments: segments.map(seg => ({
+                    speaker: speakerColors[seg.speaker % speakerColors.length].name,
+                    text: seg.text,
+                    time: seg.time
+                }))
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `diarization_${Date.now()}.json`;
+            a.click();
+        }
+
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = false;
+            recognition.lang = document.getElementById('language').value;
+
+            recognition.onstart = () => {
+                isRecording = true;
+                startTime = Date.now();
+                status.className = 'status-indicator recording';
+                statusText.textContent = '🔴 Recording in progress...';
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                statsGrid.style.display = 'grid';
+                startAudioAnalysis();
+            };
+
+            recognition.onresult = (event) => {
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    if (event.results[i].isFinal) {
+                        const text = event.results[i][0].transcript.trim();
+                        if (text) {
+                            addSegment(text, currentSpeaker, Date.now() - startTime);
+                        }
+                    }
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Recognition error:', event.error);
+                statusText.textContent = '❌ Error: ' + event.error;
+                status.className = 'status-indicator idle';
+            };
+
+            recognition.onend = () => {
+                isRecording = false;
+                if (microphone) microphone.disconnect();
+                status.className = 'status-indicator idle';
+                statusText.textContent = '✅ Recording stopped';
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            };
+
+            startBtn.addEventListener('click', () => {
+                recognition.lang = document.getElementById('language').value;
+                speakerProfiles = {};
+                speakerCount = 0;
+                currentSpeaker = 0;
+                recognition.start();
+            });
+
+            stopBtn.addEventListener('click', () => {
+                recognition.stop();
+            });
+
+            clearBtn.addEventListener('click', () => {
+                segments = [];
+                speakerProfiles = {};
+                speakerCount = 0;
+                transcriptContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🎤</div>
+                        <h3>No recording yet</h3>
+                        <p>Click "Start Recording" to begin speaker diarization</p>
+                    </div>
+                `;
+                legend.innerHTML = '';
+                statusText.textContent = 'Ready to start recording';
+                status.className = 'status-indicator idle';
+                statsGrid.style.display = 'none';
+                exportTxt.disabled = true;
+                exportJson.disabled = true;
+            });
+
+            exportTxt.addEventListener('click', exportToTxt);
+            exportJson.addEventListener('click', exportToJson);
+
+        } else {
+            transcriptContainer.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">❌</div>
+                    <h3>Browser Not Supported</h3>
+                    <p>Please use Chrome, Edge, or Safari for speech recognition</p>
+                </div>
+            `;
+            startBtn.disabled = true;
+        }
+    </script>
+</body>
+</html>
